@@ -56,7 +56,7 @@ logs
 # Build output
 dist/
 build/
-lib/*.js.map
+lib/
 
 # Test output
 .nyc_output

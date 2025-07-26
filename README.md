@@ -17,6 +17,12 @@ This ESLint plugin provides two complementary rules to prevent such violations:
 npm install --save-dev @synapsestudios/eslint-plugin-data-boundaries
 ```
 
+**Prerequisites**: If you're using TypeScript, you'll also need the TypeScript ESLint parser:
+
+```bash
+npm install --save-dev @typescript-eslint/parser @typescript-eslint/eslint-plugin
+```
+
 ## Rules
 
 ### `no-cross-file-model-references`
@@ -73,27 +79,31 @@ class AuthService {
   async getUser(id: string) {
     return this.prisma.user.findUnique({ where: { id } }); // ✅ Valid: User belongs to auth domain
   }
-  
-  async logAction(action: string) {
-    return this.prisma.auditLog.create({ data: { action } }); // ✅ Valid: AuditLog is a shared model
-  }
 }
 ```
 
 ## Configuration
 
-### Basic Setup
+### Basic Setup (Legacy Config)
 
 Add the plugin to your `.eslintrc.js`:
 
 ```javascript
 module.exports = {
+  // Base parser configuration for TypeScript
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    ecmaVersion: 2020,
+    sourceType: 'module',
+    project: './tsconfig.json',
+    // DO NOT add .prisma to extraFileExtensions - our custom parser handles these
+  },
   plugins: ['@synapsestudios/data-boundaries'],
   overrides: [
-    // For Prisma schema files
+    // For Prisma schema files - uses our custom parser
     {
       files: ['**/*.prisma'],
-      parser: '@synapsestudios/data-boundaries/lib/parsers/prisma-parser',
+      parser: '@synapsestudios/data-boundaries/dist/parsers/prisma-parser',
       rules: {
         '@synapsestudios/data-boundaries/no-cross-file-model-references': 'error'
       }
@@ -104,13 +114,74 @@ module.exports = {
       rules: {
         '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': ['error', {
           schemaDir: 'prisma/schema',
-          allowSharedModels: true
+          modulePath: '/modules/' // Default - change to '/src/' for NestJS projects
         }]
       }
     }
   ]
 };
 ```
+
+### Flat Config Setup (Recommended for New Projects)
+
+For projects using ESLint's flat config (ESM), add to your `eslint.config.mjs`:
+
+```javascript
+import eslintPluginDataBoundaries from '@synapsestudios/eslint-plugin-data-boundaries';
+import prismaParser from '@synapsestudios/eslint-plugin-data-boundaries/dist/parsers/prisma-parser.js';
+
+export default [
+  // 1. Global ignores first
+  { 
+    ignores: ['eslint.config.mjs', '**/*.prisma'] 
+  },
+
+  // 2. Prisma config - isolated and first
+  {
+    files: ['**/*.prisma'],
+    ignores: [], // Override global ignore
+    languageOptions: { 
+      parser: prismaParser 
+    },
+    plugins: { 
+      '@synapsestudios/data-boundaries': eslintPluginDataBoundaries 
+    },
+    rules: {
+      '@synapsestudios/data-boundaries/no-cross-file-model-references': 'error',
+    },
+  },
+
+  // 3. Your existing TypeScript config here...
+  
+  // 4. TypeScript files rule config
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    plugins: { 
+      '@synapsestudios/data-boundaries': eslintPluginDataBoundaries 
+    },
+    rules: {
+      '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': [
+        'error',
+        { 
+          schemaDir: 'prisma/schema', 
+          modulePath: '/src/' // Use '/src/' for NestJS, '/modules/' for other structures
+        }
+      ],
+    },
+  },
+];
+```
+
+**⚠️ Flat Config Important Notes:**
+
+1. **Parser isolation is critical** - Prisma config must be completely separate from TypeScript config
+2. **Configuration order matters** - Place Prisma config before TypeScript config
+3. **ESM imports require .js extension** - Use `prisma-parser.js` not `prisma-parser`
+4. **Global ignores + overrides** - Use global ignore for `.prisma` then override in Prisma-specific config
+
+**⚠️ Important Configuration Note**: 
+
+**Do NOT** add `.prisma` to `extraFileExtensions` in your main parser options. The plugin includes a custom parser specifically for `.prisma` files that handles Prisma schema syntax correctly. Adding `.prisma` to `extraFileExtensions` will cause the TypeScript parser to try parsing Prisma files, which will fail.
 
 ### Using the Recommended Configuration
 
@@ -125,22 +196,22 @@ module.exports = {
 #### `no-cross-domain-prisma-access`
 
 - **`schemaDir`** (string): Directory containing Prisma schema files, relative to project root. Default: `'prisma/schema'`
-- **`allowSharedModels`** (boolean): Whether to allow access to models in shared/main schema files. Default: `true`
+- **`modulePath`** (string): Path pattern to match module directories. Default: `'/modules/'`. Use `'/src/'` for NestJS projects or other domain-based structures.
 
 ```javascript
 {
   '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': ['error', {
     schemaDir: 'database/schemas',
-    allowSharedModels: false
+    modulePath: '/src/' // For NestJS-style projects
   }]
 }
 ```
 
 ## Directory Structure
 
-This plugin assumes your project follows these conventions:
+This plugin supports multiple project structures:
 
-### Module Structure
+### Default Module Structure
 ```
 src/
   modules/
@@ -153,6 +224,21 @@ src/
     user-profile/   # user-profile domain
       service.ts
 ```
+
+### NestJS/Domain-Based Structure
+```
+src/
+  auth/             # auth domain
+    auth.service.ts
+    auth.controller.ts
+  organization/     # organization domain
+    organization.service.ts
+    organization.controller.ts
+  user-profile/     # user-profile domain
+    user-profile.service.ts
+```
+
+**Note**: For NestJS projects, set `modulePath: '/src/'` in your rule configuration.
 
 ### Schema Structure
 ```
@@ -205,6 +291,85 @@ Cross-file model references are not allowed.
 2. **Split your schema**: Gradually move models to domain-specific schema files
 3. **Add application boundaries**: Enable `no-cross-domain-prisma-access` to prevent cross-domain access in application code
 4. **Refactor violations**: Create shared services or move logic to appropriate domains
+
+## Troubleshooting
+
+### Common Issues
+
+**Error: "extension for the file (.prisma) is non-standard"**
+
+This happens when the TypeScript parser tries to parse `.prisma` files. **Do NOT add `.prisma` to `extraFileExtensions`**. Instead, make sure your configuration uses our custom parser for `.prisma` files:
+
+```javascript
+// .eslintrc.js
+module.exports = {
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    project: './tsconfig.json',
+    // DO NOT add extraFileExtensions: ['.prisma'] here
+  },
+  plugins: ['@synapsestudios/data-boundaries'],
+  overrides: [
+    {
+      files: ['**/*.prisma'],
+      parser: '@synapsestudios/data-boundaries/dist/parsers/prisma-parser', // This handles .prisma files
+      rules: {
+        '@synapsestudios/data-boundaries/no-cross-file-model-references': 'error'
+      }
+    }
+  ]
+};
+```
+
+**Error: "Could not determine schema directory"**
+
+Make sure your `schemaDir` option points to the correct directory containing your Prisma schema files:
+
+```javascript
+{
+  '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': ['error', {
+    schemaDir: 'prisma/schema', // Adjust this path as needed
+      }]
+}
+```
+
+**Rule not working on certain files**
+
+The `no-cross-domain-prisma-access` rule only applies to files in directories that match the `modulePath` option. By default, this is `/modules/`. 
+
+For **NestJS projects** or other domain-based structures, configure `modulePath: '/src/'`:
+
+```javascript
+{
+  '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': ['error', {
+    schemaDir: 'prisma/schema',
+    modulePath: '/src/', // ← Add this for NestJS projects
+      }]
+}
+```
+
+**Default structure** (`modulePath: '/modules/'`):
+```
+src/
+  modules/
+    auth/           # ✅ Will be checked
+      service.ts
+    organization/   # ✅ Will be checked
+      service.ts
+  utils/            # ❌ Will be ignored
+    helper.ts
+```
+
+**NestJS structure** (`modulePath: '/src/'`):
+```
+src/
+  auth/             # ✅ Will be checked
+    auth.service.ts
+  organization/     # ✅ Will be checked
+    org.service.ts
+  utils/            # ❌ Will be ignored
+    helper.ts
+```
 
 ## Contributing
 

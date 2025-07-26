@@ -1,10 +1,16 @@
 module.exports = {
+  preset: 'ts-jest',
   testEnvironment: 'node',
-  testMatch: ['**/tests/**/*.test.js'],
+  testMatch: ['**/tests/**/*.test.ts'],
   collectCoverageFrom: [
-    'lib/**/*.js',
-    '!lib/index.js'
+    'src/**/*.ts',
+    '!src/index.ts'
   ],
   coverageReporters: ['text', 'lcov'],
-  coverageDirectory: 'coverage'
+  coverageDirectory: 'coverage',
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  transform: {
+    '^.+\\.tsx?$': 'ts-jest',
+  },
+  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
 };

@@ -1,5 +1,5 @@
 const { RuleTester } = require('eslint');
-const rule = require('../../lib/rules/no-cross-domain-prisma-access');
+const rule = require('../../dist/rules/no-cross-domain-prisma-access');
 const path = require('path');
 
 // Use TypeScript parser for this rule since it analyzes TypeScript code
@@ -7,8 +7,8 @@ const ruleTester = new RuleTester({
   parser: require.resolve('@typescript-eslint/parser'),
   parserOptions: {
     ecmaVersion: 2020,
-    sourceType: 'module'
-  }
+    sourceType: 'module',
+  },
 });
 
 const fixturesDir = path.join(__dirname, '../fixtures/schema');
@@ -19,7 +19,7 @@ describe('no-cross-domain-prisma-access', () => {
       {
         name: 'auth module accessing auth domain models',
         filename: '/app/modules/auth/service.ts',
-        options: [{ schemaDir: fixturesDir, allowSharedModels: true }],
+        options: [{ schemaDir: fixturesDir }],
         code: `
           class AuthService {
             async getUser(id: string) {
@@ -30,12 +30,12 @@ describe('no-cross-domain-prisma-access', () => {
               return this.prisma.session.findMany({ where: { userId } });
             }
           }
-        `
+        `,
       },
       {
         name: 'organization module accessing organization domain models',
         filename: '/app/modules/organization/service.ts',
-        options: [{ schemaDir: fixturesDir, allowSharedModels: true }],
+        options: [{ schemaDir: fixturesDir }],
         code: `
           class OrganizationService {
             async getOrganization(id: string) {
@@ -46,23 +46,7 @@ describe('no-cross-domain-prisma-access', () => {
               return this.prisma.membership.findMany({ where: { organizationId: orgId } });
             }
           }
-        `
-      },
-      {
-        name: 'accessing shared models from any domain',
-        filename: '/app/modules/auth/service.ts',
-        options: [{ schemaDir: fixturesDir, allowSharedModels: true }],
-        code: `
-          class AuthService {
-            async logAction(action: string) {
-              return this.prisma.auditLog.create({ data: { action } });
-            }
-            
-            async getSetting(key: string) {
-              return this.prisma.setting.findUnique({ where: { key } });
-            }
-          }
-        `
+        `,
       },
       {
         name: 'non-module file should be ignored',
@@ -72,7 +56,19 @@ describe('no-cross-domain-prisma-access', () => {
           export function helper() {
             return prisma.user.findMany();
           }
-        `
+        `,
+      },
+      {
+        name: 'custom modulePath works - NestJS style with /src/',
+        filename: '/app/src/auth/service.ts',
+        options: [{ schemaDir: fixturesDir, modulePath: '/src/' }],
+        code: `
+          class AuthService {
+            async getUser(id: string) {
+              return this.prisma.user.findUnique({ where: { id } });
+            }
+          }
+        `,
       },
       {
         name: 'non-prisma access should be ignored',
@@ -86,7 +82,7 @@ describe('no-cross-domain-prisma-access', () => {
               return obj.create();
             }
           }
-        `
+        `,
       },
       {
         name: 'accessing prisma methods should be ignored',
@@ -99,15 +95,15 @@ describe('no-cross-domain-prisma-access', () => {
               await this.prisma.$disconnect();
             }
           }
-        `
-      }
+        `,
+      },
     ],
 
     invalid: [
       {
         name: 'auth module accessing organization domain models',
         filename: '/app/modules/auth/service.ts',
-        options: [{ schemaDir: fixturesDir, allowSharedModels: true }],
+        options: [{ schemaDir: fixturesDir }],
         code: `
           class AuthService {
             async getOrganizations() {
@@ -121,15 +117,15 @@ describe('no-cross-domain-prisma-access', () => {
             data: {
               currentModule: 'auth',
               modelName: 'Organization',
-              modelDomain: 'organization'
-            }
-          }
-        ]
+              modelDomain: 'organization',
+            },
+          },
+        ],
       },
       {
         name: 'organization module accessing auth domain models',
         filename: '/app/modules/organization/service.ts',
-        options: [{ schemaDir: fixturesDir, allowSharedModels: true }],
+        options: [{ schemaDir: fixturesDir }],
         code: `
           class OrganizationService {
             async getUsers() {
@@ -147,18 +143,18 @@ describe('no-cross-domain-prisma-access', () => {
             data: {
               currentModule: 'organization',
               modelName: 'User',
-              modelDomain: 'auth'
-            }
+              modelDomain: 'auth',
+            },
           },
           {
             messageId: 'crossDomainAccess',
             data: {
               currentModule: 'organization',
               modelName: 'Session',
-              modelDomain: 'auth'
-            }
-          }
-        ]
+              modelDomain: 'auth',
+            },
+          },
+        ],
       },
       {
         name: 'accessing non-existent model',
@@ -175,15 +171,15 @@ describe('no-cross-domain-prisma-access', () => {
           {
             messageId: 'modelNotFound',
             data: {
-              modelName: 'Project'
-            }
-          }
-        ]
+              modelName: 'Project',
+            },
+          },
+        ],
       },
       {
         name: 'direct prisma access violations',
         filename: '/app/modules/auth/controller.ts',
-        options: [{ schemaDir: fixturesDir, allowSharedModels: true }],
+        options: [{ schemaDir: fixturesDir }],
         code: `
           export async function getOrganizations() {
             return prisma.organization.findMany();
@@ -199,23 +195,23 @@ describe('no-cross-domain-prisma-access', () => {
             data: {
               currentModule: 'auth',
               modelName: 'Organization',
-              modelDomain: 'organization'
-            }
+              modelDomain: 'organization',
+            },
           },
           {
             messageId: 'crossDomainAccess',
             data: {
               currentModule: 'auth',
               modelName: 'Membership',
-              modelDomain: 'organization'
-            }
-          }
-        ]
+              modelDomain: 'organization',
+            },
+          },
+        ],
       },
       {
-        name: 'shared models blocked when allowSharedModels is false',
+        name: 'shared models are now blocked - no special treatment',
         filename: '/app/modules/auth/service.ts',
-        options: [{ schemaDir: fixturesDir, allowSharedModels: false }],
+        options: [{ schemaDir: fixturesDir }],
         code: `
           class AuthService {
             async logAction() {
@@ -229,11 +225,33 @@ describe('no-cross-domain-prisma-access', () => {
             data: {
               currentModule: 'auth',
               modelName: 'AuditLog',
-              modelDomain: 'shared'
+              modelDomain: 'shared',
+            },
+          },
+        ],
+      },
+      {
+        name: 'custom modulePath violation - NestJS style cross-domain access',
+        filename: '/app/src/auth/service.ts',
+        options: [{ schemaDir: fixturesDir, modulePath: '/src/' }],
+        code: `
+          class AuthService {
+            async getOrganizations() {
+              return this.prisma.organization.findMany();
             }
           }
-        ]
-      }
-    ]
+        `,
+        errors: [
+          {
+            messageId: 'crossDomainAccess',
+            data: {
+              currentModule: 'auth',
+              modelName: 'Organization',
+              modelDomain: 'organization',
+            },
+          },
+        ],
+      },
+    ],
   });
 });

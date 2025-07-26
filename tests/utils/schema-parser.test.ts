@@ -1,10 +1,10 @@
-const path = require('path');
-const { 
-  buildModelToDomainMapping, 
-  extractModuleFromPath, 
-  isPrismaModelName, 
-  camelToPascalCase 
-} = require('../../lib/utils/schema-parser');
+import * as path from 'path';
+import {
+  buildModelToDomainMapping,
+  extractModuleFromPath,
+  isPrismaModelName,
+  camelToPascalCase,
+} from '../../src/utils/schema-parser';
 
 describe('schema-parser', () => {
   const fixturesDir = path.join(__dirname, '../fixtures/schema');
@@ -12,14 +12,14 @@ describe('schema-parser', () => {
   describe('buildModelToDomainMapping', () => {
     it('should map models to their domain files', () => {
       const mapping = buildModelToDomainMapping(fixturesDir);
-      
+
       expect(mapping).toEqual({
-        'User': 'auth',
-        'Session': 'auth',
-        'Organization': 'organization', 
-        'Membership': 'organization',
-        'AuditLog': 'shared',
-        'Setting': 'shared'
+        User: 'auth',
+        Session: 'auth',
+        Organization: 'organization',
+        Membership: 'organization',
+        AuditLog: 'shared',
+        Setting: 'shared',
       });
     });
 
@@ -38,7 +38,9 @@ describe('schema-parser', () => {
 
     it('should extract module name from Windows paths', () => {
       expect(extractModuleFromPath('C:\\app\\modules\\auth\\service.ts')).toBe('auth');
-      expect(extractModuleFromPath('C:\\src\\modules\\organization\\controller.ts')).toBe('organization');
+      expect(extractModuleFromPath('C:\\src\\modules\\organization\\controller.ts')).toBe(
+        'organization'
+      );
     });
 
     it('should return null for non-module paths', () => {
@@ -49,7 +51,9 @@ describe('schema-parser', () => {
 
     it('should handle nested module structures', () => {
       expect(extractModuleFromPath('/app/src/modules/auth/services/user.service.ts')).toBe('auth');
-      expect(extractModuleFromPath('/modules/organization/dto/create-org.dto.ts')).toBe('organization');
+      expect(extractModuleFromPath('/modules/organization/dto/create-org.dto.ts')).toBe(
+        'organization'
+      );
     });
   });
 

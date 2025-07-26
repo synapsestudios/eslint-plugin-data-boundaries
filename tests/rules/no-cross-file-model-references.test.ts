@@ -1,9 +1,8 @@
 const { RuleTester } = require('eslint');
-const rule = require('../../lib/rules/no-cross-file-model-references');
-const parser = require('../../lib/parsers/prisma-parser');
+const rule = require('../../dist/rules/no-cross-file-model-references');
 
 const ruleTester = new RuleTester({
-  parser: require.resolve('../../lib/parsers/prisma-parser')
+  parser: require.resolve('../../dist/parsers/prisma-parser'),
 });
 
 describe('no-cross-file-model-references', () => {
@@ -23,7 +22,7 @@ describe('no-cross-file-model-references', () => {
             userId String
             user User @relation(fields: [userId], references: [id])
           }
-        `
+        `,
       },
       {
         name: 'model with primitive types only',
@@ -37,7 +36,7 @@ describe('no-cross-file-model-references', () => {
             createdAt DateTime
             metadata Json
           }
-        `
+        `,
       },
       {
         name: 'model with array types',
@@ -54,7 +53,7 @@ describe('no-cross-file-model-references', () => {
             organizationId String
             organization Organization @relation(fields: [organizationId], references: [id])
           }
-        `
+        `,
       },
       {
         name: 'non-prisma file should be ignored',
@@ -63,8 +62,8 @@ describe('no-cross-file-model-references', () => {
           const config = {
             database: 'postgresql://...'
           };
-        `
-      }
+        `,
+      },
     ],
 
     invalid: [
@@ -83,10 +82,10 @@ describe('no-cross-file-model-references', () => {
             messageId: 'crossFileReference',
             data: {
               field: 'organization',
-              model: 'Organization'
-            }
-          }
-        ]
+              model: 'Organization',
+            },
+          },
+        ],
       },
       {
         name: 'multiple cross-file references',
@@ -105,17 +104,17 @@ describe('no-cross-file-model-references', () => {
             messageId: 'crossFileReference',
             data: {
               field: 'user',
-              model: 'User'
-            }
+              model: 'User',
+            },
           },
           {
             messageId: 'crossFileReference',
             data: {
               field: 'organization',
-              model: 'Organization'
-            }
-          }
-        ]
+              model: 'Organization',
+            },
+          },
+        ],
       },
       {
         name: 'array type cross-file reference',
@@ -131,11 +130,11 @@ describe('no-cross-file-model-references', () => {
             messageId: 'crossFileReference',
             data: {
               field: 'posts',
-              model: 'Post'
-            }
-          }
-        ]
-      }
-    ]
+              model: 'Post',
+            },
+          },
+        ],
+      },
+    ],
   });
 });
