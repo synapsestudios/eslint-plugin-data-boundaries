@@ -16,7 +16,7 @@ module.exports = {
       overrides: [
         {
           files: ['**/*.prisma'],
-          parser: '@synapsestudios/data-boundaries/dist/parsers/prisma-parser',
+          parser: '@synapsestudios/eslint-plugin-data-boundaries/parsers/prisma',
           rules: {
             '@synapsestudios/data-boundaries/no-cross-file-model-references': 'error',
           },

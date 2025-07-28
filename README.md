@@ -103,7 +103,7 @@ module.exports = {
     // For Prisma schema files - uses our custom parser
     {
       files: ['**/*.prisma'],
-      parser: '@synapsestudios/data-boundaries/dist/parsers/prisma-parser',
+      parser: '@synapsestudios/eslint-plugin-data-boundaries/parsers/prisma',
       rules: {
         '@synapsestudios/data-boundaries/no-cross-file-model-references': 'error'
       }
@@ -128,7 +128,7 @@ For projects using ESLint's flat config (ESM), add to your `eslint.config.mjs`:
 
 ```javascript
 import eslintPluginDataBoundaries from '@synapsestudios/eslint-plugin-data-boundaries';
-import prismaParser from '@synapsestudios/eslint-plugin-data-boundaries/dist/parsers/prisma-parser.js';
+import prismaParser from '@synapsestudios/eslint-plugin-data-boundaries/parsers/prisma';
 
 export default [
   // 1. Global ignores first
@@ -176,7 +176,7 @@ export default [
 
 1. **Parser isolation is critical** - Prisma config must be completely separate from TypeScript config
 2. **Configuration order matters** - Place Prisma config before TypeScript config
-3. **ESM imports require .js extension** - Use `prisma-parser.js` not `prisma-parser`
+3. **ESM imports** - The parser can be imported from the cleaner export path
 4. **Global ignores + overrides** - Use global ignore for `.prisma` then override in Prisma-specific config
 
 **⚠️ Important Configuration Note**: 
@@ -312,7 +312,7 @@ module.exports = {
   overrides: [
     {
       files: ['**/*.prisma'],
-      parser: '@synapsestudios/data-boundaries/dist/parsers/prisma-parser', // This handles .prisma files
+      parser: '@synapsestudios/eslint-plugin-data-boundaries/parsers/prisma', // This handles .prisma files
       rules: {
         '@synapsestudios/data-boundaries/no-cross-file-model-references': 'error'
       }

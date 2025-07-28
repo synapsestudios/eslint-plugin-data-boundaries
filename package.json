@@ -4,6 +4,16 @@
   "description": "ESLint plugin to enforce data boundary policies in modular monoliths",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./parsers/prisma": {
+      "types": "./dist/parsers/prisma-parser.d.ts",
+      "default": "./dist/parsers/prisma-parser.js"
+    }
+  },
   "files": [
     "dist",
     "README.md",
