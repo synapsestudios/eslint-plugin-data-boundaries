@@ -1,6 +1,6 @@
 {
   "name": "@synapsestudios/eslint-plugin-data-boundaries",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "ESLint plugin to enforce data boundary policies in modular monoliths",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
