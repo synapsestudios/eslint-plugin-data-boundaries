@@ -1,15 +1,24 @@
 # @synapsestudios/eslint-plugin-data-boundaries
 
-ESLint plugin to enforce data boundary policies in modular monoliths using Prisma ORM.
+ESLint plugin to enforce data boundary policies in modular monoliths using Prisma ORM and slonik.
+
+## Rules
+
+| Rule | Description | Scope |
+|------|-------------|-------|
+| [`no-cross-file-model-references`](#no-cross-file-model-references) | Prevents Prisma models from referencing models defined in other schema files | Prisma schema files |
+| [`no-cross-domain-prisma-access`](#no-cross-domain-prisma-access) | Prevents modules from accessing Prisma models outside their domain boundaries | TypeScript/JavaScript |
+| [`no-cross-schema-slonik-access`](#no-cross-schema-slonik-access) | Prevents modules from accessing database tables outside their schema boundaries via slonik | TypeScript/JavaScript |
 
 ## Overview
 
-When building modular monoliths, maintaining clear boundaries between domains is crucial for long-term maintainability. ORMs like Prisma make it easy to accidentally create tight coupling at the data layer by allowing modules to access models that belong to other domains.
+When building modular monoliths, maintaining clear boundaries between domains is crucial for long-term maintainability. ORMs like Prisma and query builders like slonik make it easy to accidentally create tight coupling at the data layer by allowing modules to access data that belongs to other domains.
 
-This ESLint plugin provides two complementary rules to prevent such violations:
+This ESLint plugin provides three complementary rules to prevent such violations:
 
 1. **Schema-level enforcement**: Prevents Prisma schema files from referencing models defined in other schema files
-2. **Application-level enforcement**: Prevents TypeScript code from accessing Prisma models outside their domain boundaries
+2. **Application-level enforcement**: Prevents TypeScript code from accessing Prisma models outside their domain boundaries  
+3. **SQL-level enforcement**: Prevents slonik SQL queries from accessing tables outside the module's schema
 
 ## Installation
 
@@ -82,6 +91,70 @@ class AuthService {
 }
 ```
 
+### `no-cross-schema-slonik-access`
+
+Prevents TypeScript/JavaScript modules from accessing database tables outside their schema boundaries when using slonik. This rule enforces that all table references must be explicitly qualified with the module's schema name and prevents cross-schema access.
+
+**Examples of violations:**
+
+```typescript
+// In /modules/auth/service.ts
+import { sql } from 'slonik';
+
+class AuthService {
+  async getUser(id: string) {
+    // ❌ Error: Module 'auth' must use fully qualified table names. Use 'auth.users' instead of 'users'.
+    return await this.pool.query(sql`
+      SELECT * FROM users WHERE id = ${id}
+    `);
+  }
+
+  async getUserOrganizations(userId: string) {
+    // ❌ Error: Module 'auth' cannot access table 'memberships' in schema 'organization'.
+    return await this.pool.query(sql`
+      SELECT * FROM organization.memberships WHERE user_id = ${userId}
+    `);
+  }
+}
+```
+
+**Valid usage:**
+
+```typescript
+// In /modules/auth/service.ts
+import { sql } from 'slonik';
+
+class AuthService {
+  async getUser(id: string) {
+    // ✅ Valid: Fully qualified table name within module's schema
+    return await this.pool.query(sql`
+      SELECT * FROM auth.users WHERE id = ${id}
+    `);
+  }
+
+  async getUserSessions(userId: string) {
+    // ✅ Valid: Both tables are explicitly qualified with auth schema
+    return await this.pool.query(sql`
+      SELECT s.* FROM auth.sessions s
+      JOIN auth.users u ON s.user_id = u.id
+      WHERE u.id = ${userId}
+    `);
+  }
+}
+```
+
+**Configuration:**
+
+The rule supports the same `modulePath` configuration as other rules:
+
+```javascript
+{
+  '@synapsestudios/data-boundaries/no-cross-schema-slonik-access': ['error', {
+    modulePath: '/modules/' // Default - change to '/src/' for NestJS projects
+  }]
+}
+```
+
 ## Configuration
 
 ### Basic Setup (Legacy Config)
@@ -114,6 +187,9 @@ module.exports = {
       rules: {
         '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': ['error', {
           schemaDir: 'prisma/schema',
+          modulePath: '/modules/' // Default - change to '/src/' for NestJS projects
+        }],
+        '@synapsestudios/data-boundaries/no-cross-schema-slonik-access': ['error', {
           modulePath: '/modules/' // Default - change to '/src/' for NestJS projects
         }]
       }
@@ -167,6 +243,12 @@ export default [
           modulePath: '/src/' // Use '/src/' for NestJS, '/modules/' for other structures
         }
       ],
+      '@synapsestudios/data-boundaries/no-cross-schema-slonik-access': [
+        'error',
+        { 
+          modulePath: '/src/' // Use '/src/' for NestJS, '/modules/' for other structures
+        }
+      ],
     },
   },
 ];
@@ -202,6 +284,18 @@ module.exports = {
 {
   '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': ['error', {
     schemaDir: 'database/schemas',
+    modulePath: '/src/' // For NestJS-style projects
+  }]
+}
+```
+
+#### `no-cross-schema-slonik-access`
+
+- **`modulePath`** (string): Path pattern to match module directories. Default: `'/modules/'`. Use `'/src/'` for NestJS projects or other domain-based structures.
+
+```javascript
+{
+  '@synapsestudios/data-boundaries/no-cross-schema-slonik-access': ['error', {
     modulePath: '/src/' // For NestJS-style projects
   }]
 }
@@ -285,12 +379,22 @@ Model field 'user' references 'User' which is not defined in this file.
 Cross-file model references are not allowed.
 ```
 
+```
+Module 'auth' must use fully qualified table names. Use 'auth.users' instead of 'users'.
+```
+
+```
+Module 'auth' cannot access table 'memberships' in schema 'organization'. 
+SQL queries should only access tables within the module's own schema ('auth').
+```
+
 ## Migration Strategy
 
 1. **Start with schema boundaries**: Add the `no-cross-file-model-references` rule to prevent new violations in schema files
 2. **Split your schema**: Gradually move models to domain-specific schema files
 3. **Add application boundaries**: Enable `no-cross-domain-prisma-access` to prevent cross-domain access in application code
-4. **Refactor violations**: Create shared services or move logic to appropriate domains
+4. **Enforce SQL boundaries**: Enable `no-cross-schema-slonik-access` if using slonik to prevent cross-schema SQL queries
+5. **Refactor violations**: Create shared services or move logic to appropriate domains
 
 ## Troubleshooting
 
