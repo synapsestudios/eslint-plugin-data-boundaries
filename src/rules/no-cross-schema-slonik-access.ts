@@ -10,7 +10,7 @@ interface RuleOptions {
  */
 function extractTableNames(sql: string): string[] {
   const tableNames: string[] = [];
-  
+
   // Remove comments and normalize whitespace
   const cleanSql = sql
     .replace(/--.*$/gm, '') // Remove line comments
@@ -32,12 +32,12 @@ function extractTableNames(sql: string): string[] {
     /DELETE\s+FROM\s+(?:(\w+)\.)?(\w+)/gi,
   ];
 
-  patterns.forEach(pattern => {
+  patterns.forEach((pattern) => {
     let match;
     while ((match = pattern.exec(cleanSql)) !== null) {
       const schema = match[1];
       const table = match[2];
-      
+
       if (table && table.toLowerCase() !== 'select') {
         // If schema is specified, use schema.table format
         if (schema) {
@@ -63,22 +63,22 @@ function isTableAccessViolation(
   // Check if table name includes schema (schema.table format)
   if (tableName.includes('.')) {
     const [schema, table] = tableName.split('.', 2);
-    
+
     // If schema is explicitly specified and doesn't match module, it's a violation
     if (schema && schema !== currentModule) {
       return {
         isViolation: true,
         schema,
         table,
-        reason: 'crossSchema'
+        reason: 'crossSchema',
       };
     }
   } else {
     // For unqualified table names, this is now a violation - require explicit schema
-    return { 
-      isViolation: true, 
+    return {
+      isViolation: true,
       table: tableName,
-      reason: 'unqualified'
+      reason: 'unqualified',
     };
   }
 
@@ -94,9 +94,11 @@ function isSlonikSqlCall(node: TSESTree.TaggedTemplateExpression): boolean {
   }
 
   // Handle member expressions like db.sql or this.sql
-  if (node.tag.type === 'MemberExpression' && 
-      node.tag.property.type === 'Identifier' && 
-      node.tag.property.name === 'sql') {
+  if (
+    node.tag.type === 'MemberExpression' &&
+    node.tag.property.type === 'Identifier' &&
+    node.tag.property.name === 'sql'
+  ) {
     return true;
   }
 
@@ -108,19 +110,19 @@ function isSlonikSqlCall(node: TSESTree.TaggedTemplateExpression): boolean {
  */
 function extractSqlFromTemplate(node: TSESTree.TaggedTemplateExpression): string {
   const quasi = node.quasi;
-  
+
   // Combine all template parts into a single string
   let sql = '';
-  
+
   quasi.quasis.forEach((element, index) => {
     sql += element.value.raw;
-    
+
     // Add placeholder for expressions (${...})
     if (index < quasi.expressions.length) {
       sql += ' ? '; // Use placeholder for parameter
     }
   });
-  
+
   return sql;
 }
 
@@ -188,14 +190,14 @@ const rule = createRule<[RuleOptions], 'crossSchemaAccess' | 'unqualifiedTable'>
 
         // Extract SQL from template literal
         const sqlString = extractSqlFromTemplate(node);
-        
+
         // Extract table names from SQL
         const tableNames = extractTableNames(sqlString);
 
         // Check each table for schema boundary violations
-        tableNames.forEach(tableName => {
+        tableNames.forEach((tableName) => {
           const violation = isTableAccessViolation(tableName, currentModule);
-          
+
           if (violation.isViolation) {
             if (violation.reason === 'crossSchema' && violation.schema && violation.table) {
               context.report({

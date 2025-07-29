@@ -356,7 +356,6 @@ describe('no-cross-schema-slonik-access', () => {
       },
     ],
   });
-
 });
 
 // Integration test with real slonik import
