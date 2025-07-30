@@ -6,6 +6,29 @@ interface PrismaParserServices {
 }
 
 /**
+ * Helper function to recursively extract the base type name from complex field types
+ */
+function extractBaseType(fieldType: any): string {
+  if (typeof fieldType === 'string') {
+    return fieldType;
+  }
+
+  if (fieldType && fieldType.type) {
+    switch (fieldType.type) {
+      case 'array':
+        return extractBaseType(fieldType.fieldType);
+      case 'optional':
+        return extractBaseType(fieldType.fieldType);
+      default:
+        // For other types, try to get the name or fieldType
+        return fieldType.name || extractBaseType(fieldType.fieldType) || '';
+    }
+  }
+
+  return '';
+}
+
+/**
  * Helper function to find the line number of a field in the schema content
  * Looks for the field name followed by a type (space-separated tokens)
  */
@@ -20,14 +43,14 @@ function getLineNumber(content: string, fieldName: string): number {
       return i + 1; // ESLint uses 1-based line numbers
     }
   }
-  
+
   // Fallback: look for any line containing the field name
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].includes(fieldName)) {
       return i + 1;
     }
   }
-  
+
   return 1; // Default to line 1 if not found
 }
 
@@ -83,31 +106,8 @@ const rule: Rule.RuleModule = {
               item.properties.forEach((property: any) => {
                 if (property && property.type === 'field' && property.fieldType && property.name) {
                   // Extract the field type - handle both simple types and complex types
-                  let referencedTypeName: string;
-                  
-                  // Helper function to recursively extract the base type name
-                  function extractBaseType(fieldType: any): string {
-                    if (typeof fieldType === 'string') {
-                      return fieldType;
-                    }
-                    
-                    if (fieldType && fieldType.type) {
-                      switch (fieldType.type) {
-                        case 'array':
-                          return extractBaseType(fieldType.fieldType);
-                        case 'optional':
-                          return extractBaseType(fieldType.fieldType);
-                        default:
-                          // For other types, try to get the name or fieldType
-                          return fieldType.name || extractBaseType(fieldType.fieldType) || '';
-                      }
-                    }
-                    
-                    return '';
-                  }
-                  
-                  referencedTypeName = extractBaseType(property.fieldType);
-                  
+                  const referencedTypeName = extractBaseType(property.fieldType);
+
                   if (!referencedTypeName) {
                     // Skip if we can't determine the type
                     return;

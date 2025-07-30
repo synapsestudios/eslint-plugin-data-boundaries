@@ -199,7 +199,7 @@ describe('no-cross-file-model-references', () => {
         `,
       },
       {
-        name: 'REGRESSION: user\'s schema without cross-file references should be valid',
+        name: "REGRESSION: user's schema without cross-file references should be valid",
         filename: 'organization.prisma',
         code: `
 model Organization {
@@ -456,7 +456,7 @@ model UserOrganization {
         ],
       },
       {
-        name: 'REGRESSION: should detect User cross-file reference from user\'s problematic schema',
+        name: "REGRESSION: should detect User cross-file reference from user's problematic schema",
         filename: 'organization.prisma',
         code: `
 model Organization {
