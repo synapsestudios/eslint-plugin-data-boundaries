@@ -6,16 +6,51 @@ interface PrismaParserServices {
 }
 
 /**
+ * Helper function to recursively extract the base type name from complex field types
+ */
+function extractBaseType(fieldType: any): string {
+  if (typeof fieldType === 'string') {
+    return fieldType;
+  }
+
+  if (fieldType && fieldType.type) {
+    switch (fieldType.type) {
+      case 'array':
+        return extractBaseType(fieldType.fieldType);
+      case 'optional':
+        return extractBaseType(fieldType.fieldType);
+      default:
+        // For other types, try to get the name or fieldType
+        return fieldType.name || extractBaseType(fieldType.fieldType) || '';
+    }
+  }
+
+  return '';
+}
+
+/**
  * Helper function to find the line number of a field in the schema content
- * This is a simplified implementation that finds the first occurrence
+ * Looks for the field name followed by a type (space-separated tokens)
  */
 function getLineNumber(content: string, fieldName: string): number {
   const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim().startsWith(fieldName)) {
+    const line = lines[i].trim();
+    // Look for lines that start with the field name followed by whitespace and a type
+    // This avoids matching field names that appear in comments or other contexts
+    const fieldPattern = new RegExp(`^${fieldName}\\s+\\w+`);
+    if (fieldPattern.test(line)) {
       return i + 1; // ESLint uses 1-based line numbers
     }
   }
+
+  // Fallback: look for any line containing the field name
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes(fieldName)) {
+      return i + 1;
+    }
+  }
+
   return 1; // Default to line 1 if not found
 }
 
@@ -56,12 +91,12 @@ const rule: Rule.RuleModule = {
 
           const ast = services.getPrismaAst();
 
-          // Extract all models defined in this file
-          const definedModels = new Set<string>();
+          // Extract all models and enums defined in this file
+          const definedTypes = new Set<string>();
 
           ast.list.forEach((item) => {
-            if (item.type === 'model' && item.name) {
-              definedModels.add(item.name);
+            if ((item.type === 'model' || item.type === 'enum') && item.name) {
+              definedTypes.add(item.name);
             }
           });
 
@@ -69,9 +104,14 @@ const rule: Rule.RuleModule = {
           ast.list.forEach((item) => {
             if (item.type === 'model' && item.properties) {
               item.properties.forEach((property: any) => {
-                if (property && property.fieldType && property.name) {
-                  // Check if this field references another model
-                  const referencedModelName = property.fieldType;
+                if (property && property.type === 'field' && property.fieldType && property.name) {
+                  // Extract the field type - handle both simple types and complex types
+                  const referencedTypeName = extractBaseType(property.fieldType);
+
+                  if (!referencedTypeName) {
+                    // Skip if we can't determine the type
+                    return;
+                  }
 
                   // Skip primitive types (String, Int, DateTime, etc.)
                   const primitiveTypes = [
@@ -83,16 +123,13 @@ const rule: Rule.RuleModule = {
                     'Json',
                     'Bytes',
                   ];
-                  if (primitiveTypes.includes(referencedModelName)) {
+                  if (primitiveTypes.includes(referencedTypeName)) {
                     return;
                   }
 
-                  // Skip array types (remove [] suffix)
-                  const cleanModelName = referencedModelName.replace(/\[\]$/, '');
-
-                  // Check if the referenced model is defined in this file
-                  if (!definedModels.has(cleanModelName)) {
-                    // This is a cross-file model reference - report it
+                  // Check if the referenced type is defined in this file
+                  if (!definedTypes.has(referencedTypeName)) {
+                    // This is a cross-file reference - report it
                     const sourceCode = context.getSourceCode();
                     const schemaContent = sourceCode.getText();
                     const fieldLine = getLineNumber(schemaContent, property.name as string);
@@ -106,7 +143,7 @@ const rule: Rule.RuleModule = {
                       messageId: 'crossFileReference',
                       data: {
                         field: property.name as string,
-                        model: cleanModelName,
+                        model: referencedTypeName,
                       },
                     });
                   }
