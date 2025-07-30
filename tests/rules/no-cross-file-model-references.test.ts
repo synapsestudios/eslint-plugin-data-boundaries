@@ -144,6 +144,155 @@ describe('no-cross-file-model-references', () => {
           }
         `,
       },
+      {
+        name: 'enum references should be valid when enum is defined in same file',
+        filename: 'organization.prisma',
+        code: `
+          enum OrganizationRole {
+            OWNER
+            ADMIN
+            MEMBER
+            READONLY
+          }
+          
+          model Organization {
+            id String @id
+            name String
+            userOrganizations UserOrganization[]
+          }
+          
+          model UserOrganization {
+            id String @id
+            role OrganizationRole @default(READONLY)
+            organizationId String
+            organization Organization @relation(fields: [organizationId], references: [id])
+          }
+        `,
+      },
+      {
+        name: 'mixed enum and model references all defined in same file',
+        filename: 'auth.prisma',
+        code: `
+          enum UserStatus {
+            ACTIVE
+            INACTIVE
+            SUSPENDED
+          }
+          
+          enum UserRole {
+            USER
+            ADMIN
+          }
+          
+          model User {
+            id String @id
+            status UserStatus @default(ACTIVE)
+            role UserRole @default(USER)
+            sessions Session[]
+          }
+          
+          model Session {
+            id String @id
+            userId String
+            user User @relation(fields: [userId], references: [id])
+          }
+        `,
+      },
+      {
+        name: 'REGRESSION: user\'s schema without cross-file references should be valid',
+        filename: 'organization.prisma',
+        code: `
+model Organization {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  githubId          String             @unique @map("github_id")
+  slug              String             @unique
+  name              String
+  displayName       String             @map("display_name")
+  logoUrl           String?            @map("logo_url")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  userOrganizations UserOrganization[]
+
+  @@map("organizations")
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+  READONLY
+}
+
+model UserOrganization {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  role           OrganizationRole @default(READONLY)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@map("user_organizations")
+}`,
+      },
+      {
+        name: 'complex field type combinations - optional and array enums',
+        filename: 'complex-types.prisma',
+        code: `
+          enum Permission {
+            READ
+            WRITE
+            ADMIN
+          }
+          
+          enum Status {
+            ACTIVE
+            INACTIVE
+          }
+          
+          model User {
+            id String @id
+            primaryPermission Permission @default(READ)
+            secondaryPermission Permission?
+            allPermissions Permission[]
+            optionalPermissions Permission[]?
+            status Status @default(ACTIVE)
+            statusHistory Status[]
+          }
+        `,
+      },
+      {
+        name: 'similar type name prefixes should not cause confusion',
+        filename: 'prefix-test.prisma',
+        code: `
+          model User {
+            id String @id
+            userProfile UserProfile @relation(fields: [userProfileId], references: [id])
+            userProfileId String
+            userPreferences UserPreference[]
+            userOrganizations UserOrganization[]
+          }
+          
+          model UserProfile {
+            id String @id 
+            userId String
+            user User[]
+          }
+          
+          model UserPreference {
+            id String @id
+            userId String
+            user User @relation(fields: [userId], references: [id])
+          }
+          
+          model UserOrganization {
+            id String @id
+            userId String  
+            user User @relation(fields: [userId], references: [id])
+          }
+        `,
+      },
     ],
 
     invalid: [
@@ -240,6 +389,167 @@ describe('no-cross-file-model-references', () => {
             data: {
               field: 'payment',
               model: 'Payment',
+            },
+          },
+        ],
+      },
+      {
+        name: 'enum reference to undefined enum should fail',
+        filename: 'user.prisma',
+        code: `
+          model User {
+            id String @id
+            status UserStatus @default(ACTIVE)
+            role OrganizationRole @default(MEMBER)
+          }
+        `,
+        errors: [
+          {
+            messageId: 'crossFileReference',
+            data: {
+              field: 'status',
+              model: 'UserStatus',
+            },
+          },
+          {
+            messageId: 'crossFileReference',
+            data: {
+              field: 'role',
+              model: 'OrganizationRole',
+            },
+          },
+        ],
+      },
+      {
+        name: 'mixed valid and invalid references - should only flag the invalid ones',
+        filename: 'membership.prisma',
+        code: `
+          enum MembershipType {
+            BASIC
+            PREMIUM
+          }
+          
+          model Membership {
+            id String @id
+            type MembershipType @default(BASIC)
+            userId String
+            organizationId String
+            user User @relation(fields: [userId], references: [id])
+            organization Organization @relation(fields: [organizationId], references: [id])
+          }
+        `,
+        errors: [
+          {
+            messageId: 'crossFileReference',
+            data: {
+              field: 'user',
+              model: 'User',
+            },
+          },
+          {
+            messageId: 'crossFileReference',
+            data: {
+              field: 'organization',
+              model: 'Organization',
+            },
+          },
+        ],
+      },
+      {
+        name: 'REGRESSION: should detect User cross-file reference from user\'s problematic schema',
+        filename: 'organization.prisma',
+        code: `
+model Organization {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userOrganizations UserOrganization[]
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+  READONLY
+}
+
+model UserOrganization {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role           OrganizationRole @default(READONLY)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  userId         String
+}`,
+        errors: [
+          {
+            messageId: 'crossFileReference',
+            data: {
+              field: 'user',
+              model: 'User',
+            },
+          },
+        ],
+      },
+      {
+        name: 'REGRESSION: optional field types should be detected',
+        filename: 'user.prisma',
+        code: `
+          model User {
+            id String @id
+            optionalRole ExternalRole?
+          }
+        `,
+        errors: [
+          {
+            messageId: 'crossFileReference',
+            data: {
+              field: 'optionalRole',
+              model: 'ExternalRole',
+            },
+          },
+        ],
+      },
+      {
+        name: 'REGRESSION: array types should be detected',
+        filename: 'user.prisma',
+        code: `
+          model User {
+            id String @id
+            roles ExternalRole[]
+          }
+        `,
+        errors: [
+          {
+            messageId: 'crossFileReference',
+            data: {
+              field: 'roles',
+              model: 'ExternalRole',
+            },
+          },
+        ],
+      },
+      {
+        name: 'REGRESSION: should correctly parse UserOrganization[] as UserOrganization, not User',
+        filename: 'user.prisma',
+        code: `
+          model User {
+            id String @id
+            userOrganizations UserOrganization[]
+            userPreferences UserPreference[]
+          }
+        `,
+        errors: [
+          {
+            messageId: 'crossFileReference',
+            data: {
+              field: 'userOrganizations',
+              model: 'UserOrganization',
+            },
+          },
+          {
+            messageId: 'crossFileReference',
+            data: {
+              field: 'userPreferences',
+              model: 'UserPreference',
             },
           },
         ],
