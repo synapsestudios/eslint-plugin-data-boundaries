@@ -1,6 +1,6 @@
 # @synapsestudios/eslint-plugin-data-boundaries
 
-ESLint plugin to enforce data boundary policies in modular monoliths using Prisma ORM and slonik.
+ESLint plugin to enforce data boundary policies in modular monoliths using Prisma ORM, Drizzle ORM, and slonik.
 
 ## Rules
 
@@ -8,17 +8,21 @@ ESLint plugin to enforce data boundary policies in modular monoliths using Prism
 |------|-------------|-------|
 | [`no-cross-file-model-references`](#no-cross-file-model-references) | Prevents Prisma models from referencing models defined in other schema files | Prisma schema files |
 | [`no-cross-domain-prisma-access`](#no-cross-domain-prisma-access) | Prevents modules from accessing Prisma models outside their domain boundaries | TypeScript/JavaScript |
+| [`no-cross-schema-drizzle-references`](#no-cross-schema-drizzle-references) | Prevents Drizzle table definitions from referencing tables in other schema files | Drizzle schema files |
+| [`no-cross-domain-drizzle-access`](#no-cross-domain-drizzle-access) | Prevents modules from accessing Drizzle tables outside their domain boundaries | TypeScript/JavaScript |
 | [`no-cross-schema-slonik-access`](#no-cross-schema-slonik-access) | Prevents modules from accessing database tables outside their schema boundaries via slonik | TypeScript/JavaScript |
 
 ## Overview
 
-When building modular monoliths, maintaining clear boundaries between domains is crucial for long-term maintainability. ORMs like Prisma and query builders like slonik make it easy to accidentally create tight coupling at the data layer by allowing modules to access data that belongs to other domains.
+When building modular monoliths, maintaining clear boundaries between domains is crucial for long-term maintainability. ORMs like Prisma and Drizzle and query builders like slonik make it easy to accidentally create tight coupling at the data layer by allowing modules to access data that belongs to other domains.
 
-This ESLint plugin provides three complementary rules to prevent such violations:
+This ESLint plugin provides five complementary rules to prevent such violations:
 
-1. **Schema-level enforcement**: Prevents Prisma schema files from referencing models defined in other schema files
-2. **Application-level enforcement**: Prevents TypeScript code from accessing Prisma models outside their domain boundaries  
-3. **SQL-level enforcement**: Prevents slonik SQL queries from accessing tables outside the module's schema
+1. **Prisma schema-level enforcement**: Prevents Prisma schema files from referencing models defined in other schema files
+2. **Prisma application-level enforcement**: Prevents TypeScript code from accessing Prisma models outside their domain boundaries
+3. **Drizzle schema-level enforcement**: Prevents Drizzle table definitions from referencing tables in other schema files
+4. **Drizzle application-level enforcement**: Prevents TypeScript code from accessing Drizzle tables outside their domain boundaries
+5. **SQL-level enforcement**: Prevents slonik SQL queries from accessing tables outside the module's schema
 
 ## Installation
 
@@ -87,6 +91,79 @@ class AuthService {
 class AuthService {
   async getUser(id: string) {
     return this.prisma.user.findUnique({ where: { id } }); // ✅ Valid: User belongs to auth domain
+  }
+}
+```
+
+### `no-cross-schema-drizzle-references`
+
+Prevents Drizzle table definitions from referencing tables defined in other schema files. This rule ensures that each Drizzle schema file is self-contained within its domain by detecting foreign key references and relations that cross schema file boundaries.
+
+**Examples of violations:**
+
+```typescript
+// In execution.schema.ts
+import { pgTable, text } from 'drizzle-orm/pg-core';
+import { identity_user } from './auth.schema';
+
+export const execution = pgTable('execution', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => identity_user.id, { onDelete: 'cascade' }), // ❌ Error: identity_user not defined in this file
+});
+```
+
+**Valid usage:**
+
+```typescript
+// In auth.schema.ts
+import { pgTable, text } from 'drizzle-orm/pg-core';
+
+export const identity_user = pgTable('identity_user', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+});
+
+export const identity_session = pgTable('identity_session', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => identity_user.id, { onDelete: 'cascade' }), // ✅ Valid: identity_user is defined in same file
+});
+```
+
+### `no-cross-domain-drizzle-access`
+
+Prevents TypeScript/JavaScript modules from accessing Drizzle tables that belong to other domains. This rule analyzes your application code and maps file paths to domains, then ensures modules only access tables from their own domain.
+
+**Examples of violations:**
+
+```typescript
+// In /modules/auth/service.ts
+import { organization } from '@/db/schema';
+
+class AuthService {
+  async getOrganizations() {
+    return db.select().from(organization);
+    // ❌ Error: Module 'auth' cannot access 'organization' table (belongs to 'organization' domain)
+  }
+}
+```
+
+**Valid usage:**
+
+```typescript
+// In /modules/auth/service.ts
+import { identity_user, identity_session } from '@/db/schema';
+
+class AuthService {
+  async getUser(id: string) {
+    return db.select().from(identity_user).where(eq(identity_user.id, id)); // ✅ Valid: identity_user belongs to auth domain
+  }
+
+  async getSessions(userId: string) {
+    return db.select().from(identity_session).where(eq(identity_session.userId, userId)); // ✅ Valid: identity_session belongs to auth domain
   }
 }
 ```
@@ -185,10 +262,20 @@ module.exports = {
     {
       files: ['**/*.ts', '**/*.tsx'],
       rules: {
+        // Prisma rules
         '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': ['error', {
           schemaDir: 'prisma/schema',
           modulePath: '/modules/' // Default - change to '/src/' for NestJS projects
         }],
+        // Drizzle rules
+        '@synapsestudios/data-boundaries/no-cross-schema-drizzle-references': ['error', {
+          schemaDir: 'src/db/schema', // Adjust to your Drizzle schema directory
+        }],
+        '@synapsestudios/data-boundaries/no-cross-domain-drizzle-access': ['error', {
+          schemaDir: 'src/db/schema', // Adjust to your Drizzle schema directory
+          modulePath: '/modules/' // Default - change to '/src/' for NestJS projects
+        }],
+        // Slonik rules
         '@synapsestudios/data-boundaries/no-cross-schema-slonik-access': ['error', {
           modulePath: '/modules/' // Default - change to '/src/' for NestJS projects
         }]
@@ -232,20 +319,36 @@ export default [
   // 4. TypeScript files rule config
   {
     files: ['**/*.ts', '**/*.tsx'],
-    plugins: { 
-      '@synapsestudios/data-boundaries': eslintPluginDataBoundaries 
+    plugins: {
+      '@synapsestudios/data-boundaries': eslintPluginDataBoundaries
     },
     rules: {
+      // Prisma rules
       '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': [
         'error',
-        { 
-          schemaDir: 'prisma/schema', 
+        {
+          schemaDir: 'prisma/schema',
           modulePath: '/src/' // Use '/src/' for NestJS, '/modules/' for other structures
         }
       ],
+      // Drizzle rules
+      '@synapsestudios/data-boundaries/no-cross-schema-drizzle-references': [
+        'error',
+        {
+          schemaDir: 'src/db/schema', // Adjust to your Drizzle schema directory
+        }
+      ],
+      '@synapsestudios/data-boundaries/no-cross-domain-drizzle-access': [
+        'error',
+        {
+          schemaDir: 'src/db/schema', // Adjust to your Drizzle schema directory
+          modulePath: '/src/' // Use '/src/' for NestJS, '/modules/' for other structures
+        }
+      ],
+      // Slonik rules
       '@synapsestudios/data-boundaries/no-cross-schema-slonik-access': [
         'error',
-        { 
+        {
           modulePath: '/src/' // Use '/src/' for NestJS, '/modules/' for other structures
         }
       ],
@@ -284,6 +387,32 @@ module.exports = {
 {
   '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': ['error', {
     schemaDir: 'database/schemas',
+    modulePath: '/src/' // For NestJS-style projects
+  }]
+}
+```
+
+#### `no-cross-schema-drizzle-references`
+
+- **`schemaDir`** (string): Directory containing Drizzle schema files, relative to project root. Default: `'src/db/schema'`
+
+```javascript
+{
+  '@synapsestudios/data-boundaries/no-cross-schema-drizzle-references': ['error', {
+    schemaDir: 'src/db/schema' // Adjust to your Drizzle schema directory
+  }]
+}
+```
+
+#### `no-cross-domain-drizzle-access`
+
+- **`schemaDir`** (string): Directory containing Drizzle schema files, relative to project root. Default: `'src/db/schema'`
+- **`modulePath`** (string): Path pattern to match module directories. Default: `'/modules/'`. Use `'/src/'` for NestJS projects or other domain-based structures.
+
+```javascript
+{
+  '@synapsestudios/data-boundaries/no-cross-domain-drizzle-access': ['error', {
+    schemaDir: 'src/db/schema', // Adjust to your Drizzle schema directory
     modulePath: '/src/' // For NestJS-style projects
   }]
 }
@@ -334,7 +463,7 @@ src/
 
 **Note**: For NestJS projects, set `modulePath: '/src/'` in your rule configuration.
 
-### Schema Structure
+### Prisma Schema Structure
 ```
 prisma/
   schema/
@@ -343,13 +472,30 @@ prisma/
     main.prisma         # Contains shared models (AuditLog, Setting)
 ```
 
+### Drizzle Schema Structure
+```
+src/
+  db/
+    schema/
+      auth.schema.ts         # Contains identity_user, identity_session tables
+      organization.schema.ts # Contains organization table
+      execution.schema.ts    # Contains execution, message, llmCall tables
+      index.ts               # Barrel export for all schemas
+```
+
 ## Domain Mapping
 
 The plugin automatically maps:
 
+### Prisma
 - **File paths to domains**: `/modules/auth/` → `auth` domain
 - **Schema files to domains**: `auth.prisma` → `auth` domain
 - **Special cases**: `main.prisma` and `schema.prisma` → `shared` domain
+
+### Drizzle
+- **File paths to domains**: `/modules/auth/` → `auth` domain
+- **Schema files to domains**: `auth.schema.ts` → `auth` domain
+- **Table names to domains**: Extracted from schema file exports
 
 ## Use Cases
 

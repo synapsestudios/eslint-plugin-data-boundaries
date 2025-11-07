@@ -37,6 +37,8 @@
     "eslintplugin",
     "eslint-plugin",
     "prisma",
+    "drizzle",
+    "drizzle-orm",
     "data-boundaries",
     "modular-monolith",
     "domain-driven-design"
