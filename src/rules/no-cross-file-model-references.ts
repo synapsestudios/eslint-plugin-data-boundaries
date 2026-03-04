@@ -72,7 +72,7 @@ const rule: Rule.RuleModule = {
 
   create(context: Rule.RuleContext): Rule.RuleListener {
     // Only process .prisma files
-    const filename = context.getFilename();
+    const filename = context.filename;
     if (!filename.endsWith('.prisma')) {
       return {};
     }
@@ -81,9 +81,7 @@ const rule: Rule.RuleModule = {
       Program(node: any): void {
         try {
           // Get Prisma AST from parser services
-          const services = context.getSourceCode().parserServices as
-            | PrismaParserServices
-            | undefined;
+          const services = context.sourceCode.parserServices as PrismaParserServices | undefined;
           if (!services || !services.getPrismaAst) {
             // Parser doesn't support Prisma AST
             return;
@@ -130,7 +128,7 @@ const rule: Rule.RuleModule = {
                   // Check if the referenced type is defined in this file
                   if (!definedTypes.has(referencedTypeName)) {
                     // This is a cross-file reference - report it
-                    const sourceCode = context.getSourceCode();
+                    const sourceCode = context.sourceCode;
                     const schemaContent = sourceCode.getText();
                     const fieldLine = getLineNumber(schemaContent, property.name as string);
 
