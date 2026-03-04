@@ -1,0 +1,5 @@
+- Proactively use the synapse-docs MCP for guidance when planning a feature, writing code, determining the right way to implement something, or deciding what or how to test code
+- eslint disable comments are never allowed
+- Use npm (not pnpm) for all package management
+- Run `npm test` to verify changes before committing
+- Run `npm run lint` and `npm run format:check` to verify code quality
