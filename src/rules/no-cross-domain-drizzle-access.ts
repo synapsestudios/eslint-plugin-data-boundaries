@@ -93,7 +93,7 @@ const rule = createRule<[RuleOptions], 'crossDomainAccess' | 'tableNotFound' | '
     },
   ],
   create(context, [options]) {
-    const filename = context.getFilename();
+    const filename = context.filename;
 
     // Only process TypeScript files in modules
     if (!filename.includes(options.modulePath) || !filename.match(/\.(ts|tsx)$/)) {

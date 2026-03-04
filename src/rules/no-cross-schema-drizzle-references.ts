@@ -191,7 +191,7 @@ const rule = createRule<[RuleOptions], 'crossSchemaReference' | 'configError'>({
     },
   ],
   create(context, [options]) {
-    const filename = context.getFilename();
+    const filename = context.filename;
 
     // Only process .schema.ts or .ts files in the schema directory
     if (!filename.includes('.schema.ts') && !filename.endsWith('.ts')) {
