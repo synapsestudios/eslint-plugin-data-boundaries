@@ -4,10 +4,12 @@ const path = require('path');
 
 // Use TypeScript parser for this rule since it analyzes TypeScript schema files
 const ruleTester = new RuleTester({
-  parser: require.resolve('@typescript-eslint/parser'),
-  parserOptions: {
-    ecmaVersion: 2020,
-    sourceType: 'module',
+  languageOptions: {
+    parser: require('@typescript-eslint/parser'),
+    parserOptions: {
+      ecmaVersion: 2020,
+      sourceType: 'module',
+    },
   },
 });
 

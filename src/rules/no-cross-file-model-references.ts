@@ -59,7 +59,6 @@ const rule: Rule.RuleModule = {
     type: 'problem',
     docs: {
       description: 'Disallow Prisma models from referencing models defined in other files',
-      category: 'Best Practices',
       recommended: true,
     },
     fixable: undefined,

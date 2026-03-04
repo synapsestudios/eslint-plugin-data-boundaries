@@ -5,7 +5,7 @@ const noCrossSchemaDrizzleReferences = require('./rules/no-cross-schema-drizzle-
 const noCrossDomainDrizzleAccess = require('./rules/no-cross-domain-drizzle-access');
 const prismaParser = require('./parsers/prisma-parser');
 
-module.exports = {
+const plugin = {
   rules: {
     'no-cross-file-model-references': noCrossFileModelReferences,
     'no-cross-domain-prisma-access': noCrossDomainPrismaAccess,
@@ -16,25 +16,28 @@ module.exports = {
   parsers: {
     prisma: prismaParser,
   },
-  configs: {
-    recommended: {
-      plugins: ['@synapsestudios/data-boundaries'],
-      overrides: [
-        {
-          files: ['**/*.prisma'],
-          parser: '@synapsestudios/eslint-plugin-data-boundaries/parsers/prisma',
-          rules: {
-            '@synapsestudios/data-boundaries/no-cross-file-model-references': 'error',
-          },
-        },
-        {
-          files: ['**/*.ts', '**/*.tsx'],
-          rules: {
-            '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': 'error',
-            '@synapsestudios/data-boundaries/no-cross-schema-slonik-access': 'error',
-          },
-        },
-      ],
-    },
-  },
+  configs: {} as Record<string, unknown>,
 };
+
+plugin.configs = {
+  recommended: [
+    {
+      files: ['**/*.prisma'],
+      languageOptions: { parser: prismaParser },
+      plugins: { '@synapsestudios/data-boundaries': plugin },
+      rules: {
+        '@synapsestudios/data-boundaries/no-cross-file-model-references': 'error',
+      },
+    },
+    {
+      files: ['**/*.ts', '**/*.tsx'],
+      plugins: { '@synapsestudios/data-boundaries': plugin },
+      rules: {
+        '@synapsestudios/data-boundaries/no-cross-domain-prisma-access': 'error',
+        '@synapsestudios/data-boundaries/no-cross-schema-slonik-access': 'error',
+      },
+    },
+  ],
+};
+
+module.exports = plugin;

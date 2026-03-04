@@ -5,10 +5,12 @@ const path = require('path');
 
 // Use TypeScript parser for this rule since it analyzes TypeScript code
 const ruleTester = new RuleTester({
-  parser: require.resolve('@typescript-eslint/parser'),
-  parserOptions: {
-    ecmaVersion: 2020,
-    sourceType: 'module',
+  languageOptions: {
+    parser: require('@typescript-eslint/parser'),
+    parserOptions: {
+      ecmaVersion: 2020,
+      sourceType: 'module',
+    },
   },
 });
 
@@ -364,10 +366,12 @@ describe('integration test with real slonik import', () => {
   const slonikExampleCode = fs.readFileSync(slonikExamplePath, 'utf8');
 
   const integrationRuleTester = new RuleTester({
-    parser: require.resolve('@typescript-eslint/parser'),
-    parserOptions: {
-      ecmaVersion: 2020,
-      sourceType: 'module',
+    languageOptions: {
+      parser: require('@typescript-eslint/parser'),
+      parserOptions: {
+        ecmaVersion: 2020,
+        sourceType: 'module',
+      },
     },
   });
 
