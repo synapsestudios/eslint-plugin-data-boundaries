@@ -1,0 +1,70 @@
+{
+  "extraKnownMarketplaces": {
+    "synapse-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "synapsestudios/claude-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "synapse-claude-workflows@synapse-plugins": true
+  },
+  "enableAllProjectMcpServers": true,
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_Linear__*",
+      "mcp__plugin_synapse-claude-workflows_synapse-docs__fetch_doc",
+      "mcp__plugin_synapse-claude-workflows_synapse-docs__list_docs",
+      "Bash(find:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh search:*)",
+      "Bash(git branch:*)",
+      "Bash(git fetch:*)",
+      "Bash(git push)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(npm:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx jest:*)",
+      "Bash(tree:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebSearch"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-pnpm.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/prettier-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
