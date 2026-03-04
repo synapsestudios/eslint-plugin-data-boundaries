@@ -81,9 +81,7 @@ const rule: Rule.RuleModule = {
       Program(node: any): void {
         try {
           // Get Prisma AST from parser services
-          const services = context.sourceCode.parserServices as
-            | PrismaParserServices
-            | undefined;
+          const services = context.sourceCode.parserServices as PrismaParserServices | undefined;
           if (!services || !services.getPrismaAst) {
             // Parser doesn't support Prisma AST
             return;
