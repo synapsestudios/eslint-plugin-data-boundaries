@@ -2,7 +2,9 @@ const { RuleTester } = require('eslint');
 const rule = require('../../dist/rules/no-cross-file-model-references');
 
 const ruleTester = new RuleTester({
-  parser: require.resolve('../../dist/parsers/prisma-parser'),
+  languageOptions: {
+    parser: require('../../dist/parsers/prisma-parser'),
+  },
 });
 
 describe('no-cross-file-model-references', () => {
