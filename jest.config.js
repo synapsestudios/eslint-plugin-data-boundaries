@@ -10,7 +10,8 @@ module.exports = {
   coverageDirectory: 'coverage',
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   transform: {
-    '^.+\\.[tj]sx?$': ['ts-jest', { diagnostics: false, tsconfig: { allowJs: true } }],
+    '^.+\\.tsx?$': ['ts-jest', { diagnostics: false }],
+    'node_modules/.+\\.jsx?$': ['ts-jest', { diagnostics: false, tsconfig: { allowJs: true } }],
   },
   moduleNameMapper: {
     '^@chevrotain/(.*)$': '<rootDir>/node_modules/@chevrotain/$1/lib/src/api.js',
