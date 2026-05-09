@@ -73,7 +73,7 @@
     "prettier": "^3.6.2",
     "slonik": "^48.14.1",
     "ts-jest": "^29.4.0",
-    "typescript": "^5.8.3"
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">=18.18.0"
