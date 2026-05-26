@@ -623,7 +623,8 @@ src/
 
 ## Contributing
 
-Issues and pull requests are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+Issues and pull requests are welcome! Please see our [Contributing Guide](CONTRIBUTING.md)
+for development setup, code style, and the release process.
 
 ## License
 
