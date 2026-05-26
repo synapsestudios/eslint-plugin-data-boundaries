@@ -625,6 +625,12 @@ src/
 
 Issues and pull requests are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
+## Releasing
+
+See [RELEASING.md](RELEASING.md) for the release process. Releases are cut by
+running the **Release** workflow in GitHub Actions and merging the resulting PR;
+publishing to npm is automated.
+
 ## License
 
 MIT
