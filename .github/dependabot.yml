@@ -5,8 +5,6 @@ updates:
     schedule:
       interval: "daily"
     open-pull-requests-limit: 10
-    assignees:
-      - "spruce-bruce"
     reviewers:
       - "spruce-bruce"
 
@@ -14,7 +12,5 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-    assignees:
-      - "spruce-bruce"
     reviewers:
       - "spruce-bruce"
