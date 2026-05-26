@@ -58,8 +58,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr create \
+          PR_URL=$(gh pr create \
             --base main \
             --head "release/${{ steps.bump.outputs.version }}" \
             --title "chore(release): ${{ steps.bump.outputs.version }}" \
-            --body "Automated release PR. Merging triggers publish to npm."
+            --body "Automated release PR. Merging triggers publish to npm.")
+          echo "Opened: $PR_URL"
+          {
+            echo "### Release PR opened for ${{ steps.bump.outputs.version }}"
+            echo ""
+            echo "[$PR_URL]($PR_URL)"
+            echo ""
+            echo "Merge to publish to npm."
+          } >> "$GITHUB_STEP_SUMMARY"
