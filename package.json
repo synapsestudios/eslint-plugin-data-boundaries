@@ -74,7 +74,7 @@
     "globals": "^17.4.0",
     "jest": "^30.4.1",
     "prettier": "^3.6.2",
-    "slonik": "^48.19.0",
+    "slonik": "^49.8.0",
     "ts-jest": "^29.4.0",
     "typescript": "^6.0.3"
   },
