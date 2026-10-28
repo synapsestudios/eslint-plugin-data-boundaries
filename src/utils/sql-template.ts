@@ -38,6 +38,10 @@ export function extractTableNames(sql: string): string[] {
       const schema = match[1];
       const table = match[2];
 
+      if (isFunctionArgument(cleanSql, match.index)) {
+        continue;
+      }
+
       if (table && table.toLowerCase() !== 'select') {
         // If schema is specified, use schema.table format
         if (schema) {
@@ -51,6 +55,35 @@ export function extractTableNames(sql: string): string[] {
   });
 
   return [...new Set(tableNames)]; // Remove duplicates
+}
+
+/**
+ * Whether the keyword at `index` sits in a function's parentheses, as in
+ * `extract(epoch FROM created_at)` or `substring(name FROM 1)`, rather than
+ * at the top level or in a subquery's parentheses.
+ */
+function isFunctionArgument(sql: string, index: number): boolean {
+  const openParen = innermostOpenParen(sql, index);
+  if (openParen === -1) {
+    return false;
+  }
+  const isSubquery = /^\(\s*(SELECT|WITH)\b/i.test(sql.slice(openParen));
+  return !isSubquery;
+}
+
+function innermostOpenParen(sql: string, index: number): number {
+  let depth = 0;
+  for (let i = index - 1; i >= 0; i--) {
+    if (sql[i] === ')') {
+      depth++;
+    } else if (sql[i] === '(') {
+      if (depth === 0) {
+        return i;
+      }
+      depth--;
+    }
+  }
+  return -1;
 }
 
 /**
