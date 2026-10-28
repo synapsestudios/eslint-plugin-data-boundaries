@@ -1,6 +1,6 @@
 # @synapsestudios/eslint-plugin-data-boundaries
 
-ESLint plugin to enforce data boundary policies in modular monoliths using Prisma ORM, Drizzle ORM, and slonik.
+ESLint plugin to enforce data boundary policies in modular monoliths using Prisma ORM, Drizzle ORM, slonik, and Kysely.
 
 ## Rules
 
@@ -11,18 +11,20 @@ ESLint plugin to enforce data boundary policies in modular monoliths using Prism
 | [`no-cross-schema-drizzle-references`](#no-cross-schema-drizzle-references) | Prevents Drizzle table definitions from referencing tables in other schema files | Drizzle schema files |
 | [`no-cross-domain-drizzle-access`](#no-cross-domain-drizzle-access) | Prevents modules from accessing Drizzle tables outside their domain boundaries | TypeScript/JavaScript |
 | [`no-cross-schema-slonik-access`](#no-cross-schema-slonik-access) | Prevents modules from accessing database tables outside their schema boundaries via slonik | TypeScript/JavaScript |
+| [`no-cross-schema-kysely-access`](#no-cross-schema-kysely-access) | Prevents modules from reaching another module's schema through Kysely queries, migrations, or raw `sql` | TypeScript/JavaScript |
 
 ## Overview
 
-When building modular monoliths, maintaining clear boundaries between domains is crucial for long-term maintainability. ORMs like Prisma and Drizzle and query builders like slonik make it easy to accidentally create tight coupling at the data layer by allowing modules to access data that belongs to other domains.
+When building modular monoliths, maintaining clear boundaries between domains is crucial for long-term maintainability. ORMs like Prisma and Drizzle and query builders like slonik and Kysely make it easy to accidentally create tight coupling at the data layer by allowing modules to access data that belongs to other domains.
 
-This ESLint plugin provides five complementary rules to prevent such violations:
+This ESLint plugin provides six complementary rules to prevent such violations:
 
 1. **Prisma schema-level enforcement**: Prevents Prisma schema files from referencing models defined in other schema files
 2. **Prisma application-level enforcement**: Prevents TypeScript code from accessing Prisma models outside their domain boundaries
 3. **Drizzle schema-level enforcement**: Prevents Drizzle table definitions from referencing tables in other schema files
 4. **Drizzle application-level enforcement**: Prevents TypeScript code from accessing Drizzle tables outside their domain boundaries
 5. **SQL-level enforcement**: Prevents slonik SQL queries from accessing tables outside the module's schema
+6. **Kysely enforcement**: Prevents Kysely queries, migrations, and raw `sql` from reaching another module's schema
 
 ## Installation
 
@@ -232,6 +234,53 @@ The rule supports the same `modulePath` configuration as other rules:
 }
 ```
 
+### `no-cross-schema-kysely-access`
+
+Prevents modules from reaching another module's Postgres schema through Kysely. It assumes each module owns one schema named after the module, and checks:
+
+- `withSchema(...)`, on query builders and on `db.schema` in migrations. The argument must be a string literal naming the module's own schema.
+- Table names passed to `selectFrom`, `insertInto`, `replaceInto`, `updateTable`, `deleteFrom`, `mergeInto`, `using`, and the join methods, including arrays and `as` aliases. A table may leave out the schema, which `withSchema` then scopes, or name the module's own schema.
+- Raw `sql` templates. `withSchema` doesn't apply to raw SQL, so every table must be qualified with the module's own schema.
+
+**Examples of violations:**
+
+```typescript
+// In /modules/workers/infrastructure/worker.repository.ts
+// ❌ Error: Module 'workers' cannot use schema 'scheduling'.
+this.db = database.withTables<SchedulingTables>().withSchema('scheduling');
+
+// ❌ Error: Module 'workers' must pass withSchema its own schema as a string literal ('workers').
+this.db = database.withTables<WorkerTables>().withSchema(schemaName);
+
+// ❌ Error: Module 'workers' cannot access table 'shifts' in schema 'scheduling'.
+await this.db.selectFrom('scheduling.shifts').selectAll().execute();
+
+// ❌ Error: Module 'workers' must name the schema in raw SQL, which withSchema doesn't scope. Use 'workers.workers' instead of 'workers'.
+await sql`select * from workers`.execute(this.db);
+```
+
+**Valid usage:**
+
+```typescript
+// In /modules/workers/infrastructure/worker.repository.ts
+this.db = database.withTables<WorkerTables>().withSchema('workers');
+await this.db.selectFrom('workers').selectAll().execute();
+await sql`select count(*) from workers.workers`.execute(this.db);
+
+// In /modules/workers/migrations/20261027191334_create_workers.ts
+await db.schema.withSchema('workers').createTable('workers').execute();
+```
+
+**Configuration:**
+
+```javascript
+{
+  '@synapsestudios/data-boundaries/no-cross-schema-kysely-access': ['error', {
+    modulePath: '/modules/' // Default
+  }]
+}
+```
+
 ## Configuration
 
 ### Basic Setup (Legacy Config)
@@ -429,6 +478,10 @@ module.exports = {
   }]
 }
 ```
+
+#### `no-cross-schema-kysely-access`
+
+- **`modulePath`** (string): Path pattern to match module directories. Default: `'/modules/'`.
 
 ## Directory Structure
 
