@@ -94,6 +94,13 @@ describe('no-cross-schema-slonik-access', () => {
           }
         `,
       },
+      {
+        name: 'FROM inside EXTRACT is not a table reference',
+        filename: '/app/modules/auth/service.ts',
+        code: `
+          sql\`SELECT extract(epoch FROM created_at) FROM auth.sessions\`;
+        `,
+      },
     ],
     invalid: [
       {
@@ -176,6 +183,19 @@ describe('no-cross-schema-slonik-access', () => {
               schema: 'organization',
               table: 'memberships',
             },
+          },
+        ],
+      },
+      {
+        name: 'FROM in a subquery is still a table reference',
+        filename: '/app/modules/auth/service.ts',
+        code: `
+          sql\`SELECT * FROM auth.users WHERE id IN (SELECT user_id FROM organization.memberships)\`;
+        `,
+        errors: [
+          {
+            messageId: 'crossSchemaAccess',
+            data: { currentModule: 'auth', schema: 'organization', table: 'memberships' },
           },
         ],
       },

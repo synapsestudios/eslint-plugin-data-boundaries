@@ -1,6 +1,7 @@
 const noCrossFileModelReferences = require('./rules/no-cross-file-model-references');
 const noCrossDomainPrismaAccess = require('./rules/no-cross-domain-prisma-access');
 const noCrossSchemaSlonikAccess = require('./rules/no-cross-schema-slonik-access');
+const noCrossSchemaKyselyAccess = require('./rules/no-cross-schema-kysely-access');
 const noCrossSchemaDrizzleReferences = require('./rules/no-cross-schema-drizzle-references');
 const noCrossDomainDrizzleAccess = require('./rules/no-cross-domain-drizzle-access');
 const prismaParser = require('./parsers/prisma-parser');
@@ -10,6 +11,7 @@ const plugin = {
     'no-cross-file-model-references': noCrossFileModelReferences,
     'no-cross-domain-prisma-access': noCrossDomainPrismaAccess,
     'no-cross-schema-slonik-access': noCrossSchemaSlonikAccess,
+    'no-cross-schema-kysely-access': noCrossSchemaKyselyAccess,
     'no-cross-schema-drizzle-references': noCrossSchemaDrizzleReferences,
     'no-cross-domain-drizzle-access': noCrossDomainDrizzleAccess,
   },
